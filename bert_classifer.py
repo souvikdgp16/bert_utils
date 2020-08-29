@@ -117,10 +117,12 @@ def main():
     max_grad_norm = 1.0
     best_f1 = 0
 
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--max_length", type=int, default=386)
     parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--epochs", type=int, default=2)
+    parser.add_argument("--model_name", type=str, default='bert-base-uncased')
     parser.add_argument("--num_classes", type=int, default=2)
     parser.add_argument("--test_size", type=float, default=0.3)
     parser.add_argument("--model_name_save", type=str)
