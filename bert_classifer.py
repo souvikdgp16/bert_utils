@@ -138,6 +138,7 @@ def main():
         data_file=args['data_file']
         num_classes=args['num_classes']
         test_size=args['test_size']
+        model_name=args['model_name']
     except:
         print("ERROR in parsing tokens!")
 
