@@ -270,7 +270,8 @@ def main():
             torch.save(model.state_dict(), './{model_name_save}'.format(model_name_save=model_name_save))
 
 
-
+if __name__ == '__main__':
+    main()
 
 
 
