@@ -139,7 +139,8 @@ def main():
         num_classes=args['num_classes']
         test_size=args['test_size']
         model_name=args['model_name']
-    except:
+    except Exception as e:
+        print(e)
         print("ERROR in parsing tokens!")
 
     data=pd.read_csv(data_file)
