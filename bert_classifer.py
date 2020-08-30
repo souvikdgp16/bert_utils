@@ -26,13 +26,14 @@ n_gpu = torch.cuda.device_count()
 n_layers=4
 
 
-def transformer_preprocess(data, tokenizer):
+def transformer_preprocess(data, tokenizer, max_length):
     input_ids = []
     attention_masks = []
     input_types = []
+
     for i in data:
         tokenizer_op = tokenizer.encode_plus(i, 
-                              max_length=MAX_LEN,
+                              max_length=max_length,
                               pad_to_max_length = True,
                               truncation=True,
                               return_token_type_ids = True,
@@ -43,17 +44,31 @@ def transformer_preprocess(data, tokenizer):
     return torch.tensor(input_ids), torch.tensor(attention_masks), torch.tensor(input_types)
 
 
-def load_model(model_path):
+def load_model(model_path, model_name):
+    if model_name == 'bert-base-uncased':
+        tokenizer = BertTokenizer.from_pretrained(model_name, do_lower_case=True)
+        config = BertConfig.from_pretrained(model_name)
+    else:
+        tokenizer = RobertaTokenizer.from_pretrained(model_name, do_lower_case=True)
+        config = RobertaConfig.from_pretrained(model_name)
+
+    if model_name == 'bert-base-uncased':
+        transformer_model = BertModel.from_pretrained(model_name, config=config)
+    else:
+        transformer_model = RobertaModel.from_pretrained(model_name, config=config)
+
+    config.output_hidden_states = True
+
     model = SequenceClassifier(transformer_model, config, n_layers)
     model.load_state_dict(torch.load('{model_path}'.format(model_path=model_path)))
     model.eval()
 
-    return model
+    return model, tokenizer
 
 
-def predict(text, model):
+def predict(text, model, tokenizer):
     tr_class = torch.tensor([0]).long()
-    train_input_ids, train_attention_masks, train_input_types = transformer_preprocess([text], tokenizer)
+    train_input_ids, train_attention_masks, train_input_types = transformer_preprocess([text], tokenizer, len(text))
     train_data = TensorDataset(train_input_ids, train_attention_masks, train_input_types, tr_class)
     train_sampler = RandomSampler(train_data)
     train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=1)
@@ -70,6 +85,14 @@ def predict(text, model):
         confidence = F.softmax(torch.tensor(classification_logits), dim=1).cpu().detach().numpy()[0][class_assigned[0]]
 
     return class_assigned, confidence
+
+
+
+def flat_accuracy_classification(preds, labels):
+    pred_flat = np.argmax(preds, axis=1).flatten()
+    labels_flat = labels.flatten()
+    return np.sum(pred_flat == labels_flat) / len(labels_flat)
+
 
 
 class SequenceClassifier(torch.nn.Module):
@@ -143,16 +166,28 @@ def main():
     #     print(e)
     #     print("ERROR in parsing tokens!")
 
+    print(model_name)
+
     data=pd.read_csv(data_file)
+    data=data.dropna()
+    print(data.shape)
     X= data["text"].to_list()
     y=data["label"].to_list()
 
     x_train, x_dev, y_train, y_dev = train_test_split(X, y, test_size=test_size, random_state=42)
 
-    train_input_ids, train_attention_masks, train_input_types = transformer_preprocess(x_train, tokenizer)
+    if model_name == 'bert-base-uncased':
+        tokenizer = BertTokenizer.from_pretrained(model_name, do_lower_case=True)
+        config = BertConfig.from_pretrained(model_name)
+    else:
+        tokenizer = RobertaTokenizer.from_pretrained(model_name, do_lower_case=True)
+        config = RobertaConfig.from_pretrained(model_name)
+
+
+    train_input_ids, train_attention_masks, train_input_types = transformer_preprocess(x_train, tokenizer, MAX_LEN)
     print(train_input_ids.shape, train_attention_masks.shape, train_input_types.shape)
 
-    dev_input_ids, dev_attention_masks, dev_input_types = transformer_preprocess(x_dev, tokenizer)
+    dev_input_ids, dev_attention_masks, dev_input_types = transformer_preprocess(x_dev, tokenizer, MAX_LEN)
     print(dev_input_ids.shape, dev_attention_masks.shape, dev_input_types.shape)
 
     tr_class = torch.tensor(y_train).long()
@@ -170,19 +205,16 @@ def main():
 
     test_sampler = SequentialSampler(valid_data)
     test_dataloader = DataLoader(valid_data, sampler=test_sampler, batch_size=bs)
-
-
-    if model_name == 'bert-base-uncased':
-        tokenizer = BertTokenizer.from_pretrained(model_name, do_lower_case=True)
-        config = BertConfig.from_pretrained(model_name)
-    else:
-        tokenizer = RobertaTokenizer.from_pretrained(model_name, do_lower_case=True)
-        config = RobertaConfig.from_pretrained(model_name)
-
         
     config.output_hidden_states = True
 
+    if model_name == 'bert-base-uncased':
+        transformer_model = BertModel.from_pretrained(model_name, config=config)
+    else:
+        transformer_model = RobertaModel.from_pretrained(model_name, config=config)
+
     model = SequenceClassifier(transformer_model=transformer_model, config=config, n_layers=n_layers, num_classes=num_classes)
+    model.cuda()
     model.zero_grad()
 
     FULL_FINETUNING = True
