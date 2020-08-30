@@ -130,18 +130,18 @@ def main():
 
     args = parser.parse_args()
 
-    try:
-        MAX_LEN = args.max_length
-        bs = args.batch_size
-        epochs = args.epochs
-        model_name_save=args.model_name_save
-        data_file=args.data_file
-        num_classes=args.num_classes
-        test_size=args.test_size
-        model_name=args.model_name
-    except Exception as e:
-        print(e)
-        print("ERROR in parsing tokens!")
+    # try:
+    MAX_LEN = args.max_length
+    bs = args.batch_size
+    epochs = args.epochs
+    model_name_save=args.model_name_save
+    data_file=args.data_file
+    num_classes=args.num_classes
+    test_size=args.test_size
+    model_name=args.model_name
+    # except Exception as e:
+    #     print(e)
+    #     print("ERROR in parsing tokens!")
 
     data=pd.read_csv(data_file)
     X= data["text"].to_list()
