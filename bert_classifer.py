@@ -44,7 +44,7 @@ def transformer_preprocess(data, tokenizer, max_length):
     return torch.tensor(input_ids), torch.tensor(attention_masks), torch.tensor(input_types)
 
 
-def load_model(model_path, model_name):
+def load_model(model_path, model_name, num_classes):
     if model_name == 'bert-base-uncased':
         tokenizer = BertTokenizer.from_pretrained(model_name, do_lower_case=True)
         config = BertConfig.from_pretrained(model_name)
@@ -59,7 +59,7 @@ def load_model(model_path, model_name):
 
     config.output_hidden_states = True
 
-    model = SequenceClassifier(transformer_model, config, n_layers)
+    model = SequenceClassifier(transformer_model, config, n_layers, num_classes)
     model.load_state_dict(torch.load('{model_path}'.format(model_path=model_path)))
     model.eval()
 
