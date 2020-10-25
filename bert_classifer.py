@@ -84,7 +84,7 @@ def predict(text, model, tokenizer):
         class_assigned = list(np.argmax(classification_logits,axis=1))
         confidence = F.softmax(torch.tensor(classification_logits), dim=1).cpu().detach().numpy()[0][class_assigned[0]]
 
-    return class_assigned, confidence
+    return class_assigned, confidence, classification_logits
 
 def predict_parallel_softmax(texts, model, tokenizer, batch_size=16):
     tr_class = torch.tensor([0]).long()
