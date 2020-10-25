@@ -86,6 +86,29 @@ def predict(text, model, tokenizer):
 
     return class_assigned, confidence
 
+def predict_parallel_softmax(texts, model, tokenizer, batch_size=16):
+    tr_class = torch.tensor([0]).long()
+    train_input_ids, train_attention_masks, train_input_types = transformer_preprocess(texts, tokenizer, len(texts))
+    train_data = TensorDataset(train_input_ids, train_attention_masks, train_input_types, tr_class)
+    train_sampler = RandomSampler(train_data)
+    train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=batch_size)
+
+    res = []
+
+    for batch in train_dataloader:
+        batch = tuple(t.to(device) for t in batch)
+        b_input_ids, b_input_mask, b_segment, y_true = batch
+
+        with torch.no_grad():
+            outputs = model(b_input_ids, b_input_mask, b_segment)
+
+        classification_logits = outputs[0].detach().cpu().numpy()
+        # class_assigned = list(np.argmax(classification_logits,axis=1))
+        # confidence = F.softmax(torch.tensor(classification_logits), dim=1).cpu().detach().numpy()[0][class_assigned[0]]
+        res.append(classification_logits)
+
+    return res
+
 
 
 def flat_accuracy_classification(preds, labels):
