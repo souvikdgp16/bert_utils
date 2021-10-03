@@ -26,22 +26,17 @@ n_gpu = torch.cuda.device_count()
 n_layers=4
 
 
-def transformer_preprocess(data, tokenizer, max_length):
-    input_ids = []
-    attention_masks = []
-    input_types = []
+def transformer_preprocess(data, tokenizer, max_length, batch_size):
+    enc = tokenizer(data, padding=True, max_length=max_length,
+                             truncation=True)
+    ids = torch.tensor(enc["input_ids"])
+    attn = torch.tensor(enc["attention_mask"])
+    print("Inputs processed, ids: {}, attn: {}".format(ids.shape, attn.shape))
 
-    for i in data:
-        tokenizer_op = tokenizer.encode_plus(i, 
-                              max_length=max_length,
-                              pad_to_max_length = True,
-                              truncation=True,
-                              return_token_type_ids = True,
-                              return_attention_mask = True)
-        input_ids.append(tokenizer_op['input_ids'])
-        attention_masks.append(tokenizer_op['attention_mask'])
-        input_types.append(tokenizer_op['token_type_ids'])
-    return torch.tensor(input_ids), torch.tensor(attention_masks), torch.tensor(input_types)
+    t_data = TensorDataset(ids, attn)
+    sampler = SequentialSampler(t_data)
+    data_loader = DataLoader(t_data, sampler=sampler, batch_size=min(batch_size, ids.shape[0]))
+    return data_loader
 
 
 def load_model(model_path, model_name, num_classes):
@@ -87,28 +82,23 @@ def predict(text, model, tokenizer):
     return class_assigned, confidence, F.softmax(torch.tensor(classification_logits), dim=1).cpu().detach().numpy()
 
 def predict_parallel_softmax(texts, model, tokenizer, batch_size=16):
-    tr_class = torch.tensor([0]).long()
-    train_input_ids, train_attention_masks, train_input_types = transformer_preprocess(texts, tokenizer, len(texts))
-    train_data = TensorDataset(train_input_ids, train_attention_masks, train_input_types, tr_class)
-    train_sampler = RandomSampler(train_data)
-    train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=batch_size)
+    train_dataloader = transformer_preprocess(texts, tokenizer, 1sss00, batch_size)
 
     res = []
 
-    for batch in train_dataloader:
+    for batch in tqdm(train_dataloader):
         batch = tuple(t.to(device) for t in batch)
-        b_input_ids, b_input_mask, b_segment, y_true = batch
+        b_input_ids, b_input_mask, b_segment = batch
 
         with torch.no_grad():
             outputs = model(b_input_ids, b_input_mask, b_segment)
 
         classification_logits = outputs[0].detach().cpu().numpy()
-        # class_assigned = list(np.argmax(classification_logits,axis=1))
-        # confidence = F.softmax(torch.tensor(classification_logits), dim=1).cpu().detach().numpy()[0][class_assigned[0]]
-        res.append(classification_logits)
+        class_assigned = list(np.argmax(classification_logits,axis=1))
+        confidence = F.softmax(torch.tensor(classification_logits), dim=1).cpu().detach().numpy()[0][class_assigned[0]]
+        res.append(class_assigned)
 
     return res
-
 
 
 def flat_accuracy_classification(preds, labels):
