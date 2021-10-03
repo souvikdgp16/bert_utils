@@ -31,9 +31,10 @@ def transformer_preprocess(data, tokenizer, max_length, batch_size):
                              truncation=True)
     ids = torch.tensor(enc["input_ids"])
     attn = torch.tensor(enc["attention_mask"])
+    token_type_ids = torch.tensor(enc["token_type_ids"])
     print("Inputs processed, ids: {}, attn: {}".format(ids.shape, attn.shape))
 
-    t_data = TensorDataset(ids, attn)
+    t_data = TensorDataset(ids, attn, token_type_ids)
     sampler = SequentialSampler(t_data)
     data_loader = DataLoader(t_data, sampler=sampler, batch_size=min(batch_size, ids.shape[0]))
     return data_loader
